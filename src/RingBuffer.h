@@ -4,6 +4,7 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct ring_buffer ring_buffer_t;
