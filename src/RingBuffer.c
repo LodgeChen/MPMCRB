@@ -38,6 +38,11 @@ struct ring_buffer
 		size_t				capacity;			/** length of usable address */
 	}cfg;
 
+	struct ring_buffer_counter
+	{
+		size_t				lost;
+	}counter;
+
 	ring_buffer_node_t*		HEAD;				/** point to newest reading/writing/committed node */
 	ring_buffer_node_t*		TAIL;				/** point to oldest reading/writing/committed node */
 	ring_buffer_node_t*		oldest_reserve;		/** point to oldest writing/committed node */
@@ -122,6 +127,7 @@ inline static ring_buffer_token_t* _ring_buffer_reserve_overwrite(ring_buffer_t*
 	{
 		if (rb->cfg.capacity >= node_size)
 		{
+			rb->counter.lost++;
 			_ring_buffer_reinit(rb);
 			return _ring_buffer_reserve_empty(rb, data_len, node_size);
 		}
@@ -130,6 +136,7 @@ inline static ring_buffer_token_t* _ring_buffer_reserve_overwrite(ring_buffer_t*
 
 	/* we need to calculate if continuous committed node is large enough to hold new data */
 	size_t sum_size = 0;
+	size_t lost_node = 1;
 	ring_buffer_node_t* node_start = rb->oldest_reserve;
 	ring_buffer_node_t* node_end = node_start;
 
@@ -146,6 +153,7 @@ inline static ring_buffer_token_t* _ring_buffer_reserve_overwrite(ring_buffer_t*
 			break;
 		}
 		node_end = node_end->chain_pos.p_forward;
+		lost_node++;
 	}
 
 	/* if requirement cannot meet, then overwrite failed */
@@ -163,6 +171,7 @@ inline static ring_buffer_token_t* _ring_buffer_reserve_overwrite(ring_buffer_t*
 	node_end->chain_time.p_newer->chain_time.p_older = node_start->chain_time.p_older;
 
 	_ring_buffer_update_time_for_new_node(rb, node_start);
+	rb->counter.lost += lost_node;
 
 	/* update length */
 	*(size_t*)&node_start->token.len = data_len;
@@ -394,6 +403,7 @@ ring_buffer_t* ring_buffer_init(void* buffer, size_t size)
 	/* setup necessary field */
 	rb->cfg.cache = (uint8_t*)rb + ring_buffer_heap_cost();
 	rb->cfg.capacity = size - leading_align_size - ring_buffer_heap_cost();
+	rb->counter.lost = 0;
 
 	/* initialize */
 	_ring_buffer_reinit(rb);
@@ -422,12 +432,18 @@ ring_buffer_token_t* ring_buffer_reserve(ring_buffer_t* rb, size_t len, int flag
 	return _ring_buffer_reserve_none_empty(rb, len, node_size, flags);
 }
 
-ring_buffer_token_t* ring_buffer_consume(ring_buffer_t* rb)
+ring_buffer_token_t* ring_buffer_consume(ring_buffer_t* rb, size_t* lost)
 {
 	if (rb->oldest_reserve == NULL || rb->oldest_reserve->state != committed)
 	{
 		return NULL;
 	}
+
+	if(lost != NULL)
+	{
+		*lost = rb->counter.lost;
+	}
+	rb->counter.lost = 0;
 
 	ring_buffer_node_t* token_node = rb->oldest_reserve;
 	rb->oldest_reserve = rb->oldest_reserve->chain_time.p_newer;

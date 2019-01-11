@@ -51,7 +51,7 @@ ring_buffer_token_t* ring_buffer_reserve(ring_buffer_t* rb, size_t len, int flag
 * @param rb		ring buffer
 * @return		A token which can be consume. After consume finish, you need to commit it ether as success or discard.
 */
-ring_buffer_token_t* ring_buffer_consume(ring_buffer_t* rb);
+ring_buffer_token_t* ring_buffer_consume(ring_buffer_t* rb, size_t* lost);
 
 /**
 * commit a token as operation success or discard.
