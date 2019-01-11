@@ -1,9 +1,9 @@
 #include "RingBuffer.h"
 
-#define ALIGN_SIZE(size, align) (((size) + align - 1) & (~(align - 1)))
-#define ALIGN_PTR(ptr, align)	(void*)(ALIGN_SIZE((uintptr_t)ptr, align))
+#define ALIGN_SIZE(size, align) (((uintptr_t(size) + ((uintptr_t)(align) - 1)) & ~((uintptr_t)(align) - 1))
+#define ALIGN_PTR(ptr, align)	(void*)(ALIGN_SIZE(ptr, align))
 
-#define CONTAINER_FOR(ptr, TYPE, MEMBER)	((TYPE*)(ptr - ((size_t) &((TYPE *)0)->MEMBER)))
+#define CONTAINER_FOR(ptr, TYPE, member)	((TYPE*)((uint8_t*)(ptr) - (size_t)&((TYPE*)0)->member))
 
 typedef enum ring_buffer_node_state
 {
@@ -188,7 +188,7 @@ inline static void _ring_buffer_insert_new_node(ring_buffer_t* rb, ring_buffer_n
 inline static ring_buffer_token_t* _ring_buffer_reserve_none_empty(ring_buffer_t* rb, size_t data_len, size_t node_size, int flags)
 {
 	/* calculate possible node position on the right */
-	ring_buffer_node_t* next_possible_node = rb->HEAD + _ring_buffer_node_cost(rb->HEAD->token.len);
+	ring_buffer_node_t* next_possible_node = (ring_buffer_node_t*)((uint8_t*)rb->HEAD + _ring_buffer_node_cost(rb->HEAD->token.len));
 
 	/* if there exists node on the right, then try to make token */
 	if (rb->HEAD->chain_pos.p_forward > rb->HEAD)
