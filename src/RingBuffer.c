@@ -1,6 +1,6 @@
 #include "RingBuffer.h"
 
-#define ALIGN_SIZE(size, align) (((uintptr_t(size) + ((uintptr_t)(align) - 1)) & ~((uintptr_t)(align) - 1))
+#define ALIGN_SIZE(size, align) (((uintptr_t)(size) + ((uintptr_t)(align) - 1)) & ~((uintptr_t)(align) - 1))
 #define ALIGN_PTR(ptr, align)	(void*)(ALIGN_SIZE(ptr, align))
 
 #define CONTAINER_FOR(ptr, TYPE, member)	((TYPE*)((uint8_t*)(ptr) - (size_t)&((TYPE*)0)->member))
