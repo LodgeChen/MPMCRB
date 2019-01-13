@@ -62,6 +62,16 @@ ring_buffer_token_t* ring_buffer_consume(ring_buffer_t* rb, size_t* lost);
 int ring_buffer_commit(ring_buffer_t* rb, ring_buffer_token_t* token, int flags);
 
 /**
+* walk though all elements
+* @param rb		ring buffer
+* @param cb		call back. return <0 if want to stop
+* @param arg	user defined arg
+* @return		how many elements you walk though
+*/
+int ring_buffer_foreach(ring_buffer_t* rb,
+	int(*cb)(ring_buffer_token_t* token, int state, void* arg), void* arg);
+
+/**
 * the internal heap size for the ring buffer
 * @return		size of heap
 */

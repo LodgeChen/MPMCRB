@@ -40,7 +40,7 @@ struct ring_buffer
 
 	struct ring_buffer_counter
 	{
-		size_t				lost;
+		size_t				lost;				/** the number of lost elements form last consume */
 	}counter;
 
 	ring_buffer_node_t*		HEAD;				/** point to newest reading/writing/committed node */
@@ -413,6 +413,7 @@ ring_buffer_t* ring_buffer_init(void* buffer, size_t size)
 
 int ring_buffer_exit(ring_buffer_t* rb)
 {
+	(void)rb;
 	// do nothing
 	return 0;
 }
@@ -458,4 +459,22 @@ int ring_buffer_commit(ring_buffer_t* rb, ring_buffer_token_t* token, int flags)
 	return node->state == writing ?
 		_ring_buffer_commit_for_write(rb, node, flags) :
 		_ring_buffer_commit_for_consume(rb, node, flags);
+}
+
+int ring_buffer_foreach(ring_buffer_t* rb,
+	int (*cb)(ring_buffer_token_t* token, int state, void* arg), void* arg)
+{
+	int counter = 0;
+	ring_buffer_node_t* node = rb->TAIL;
+	for (; node != NULL; counter++)
+	{
+		if (cb(&node->token, node->state, arg) < 0)
+		{
+			break;
+		}
+
+		node = node->chain_time.p_newer;
+	}
+
+	return counter;
 }
