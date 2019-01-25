@@ -162,12 +162,21 @@ inline static ring_buffer_token_t* _ring_buffer_reserve_overwrite(ring_buffer_t*
 		return NULL;
 	}
 
+	/*
+	* here [node_start, node_end] will be overwrite,
+	* oldest_reserve need to move forward.
+	*/
+	rb->oldest_reserve = node_end->chain_time.p_newer;
+
 	/* update chain_pos */
 	node_start->chain_pos.p_forward = node_end->chain_pos.p_forward;
 	node_end->chain_pos.p_forward->chain_pos.p_backward = node_start;
 
 	/* update chain_time */
-	node_start->chain_time.p_older->chain_time.p_newer = node_end->chain_time.p_newer;
+	if (node_start->chain_time.p_older != NULL)
+	{
+		node_start->chain_time.p_older->chain_time.p_newer = node_end->chain_time.p_newer;
+	}
 	node_end->chain_time.p_newer->chain_time.p_older = node_start->chain_time.p_older;
 
 	_ring_buffer_update_time_for_new_node(rb, node_start);
@@ -351,13 +360,6 @@ inline static int _ring_buffer_commit_for_consume_confirm(ring_buffer_t* rb, rin
 */
 inline static int _ring_buffer_commit_for_consume_discard(ring_buffer_t* rb, ring_buffer_node_t* node, int flags)
 {
-	/* only node */
-	if (node->chain_pos.p_forward == node && node->chain_pos.p_backward == node)
-	{
-		node->state = committed;
-		return 0;
-	}
-
 	/* if exist a newer consumer, should fail */
 	if (node->chain_time.p_newer != NULL && node->chain_time.p_newer->state == reading)
 	{
@@ -365,7 +367,22 @@ inline static int _ring_buffer_commit_for_consume_discard(ring_buffer_t* rb, rin
 			_ring_buffer_commit_for_consume_confirm(rb, node) : -1;
 	}
 
+	/* modify state */
 	node->state = committed;
+
+	/* if no newer node, then oldest_reserve should point to this node */
+	if (node->chain_time.p_newer == NULL)
+	{
+		rb->oldest_reserve = node;
+		return 0;
+	}
+
+	if (rb->oldest_reserve != NULL && rb->oldest_reserve->chain_time.p_older == node)
+	{
+		rb->oldeest_reserve = node;
+		return 0;
+	}
+	
 	return 0;
 }
 
@@ -449,6 +466,7 @@ ring_buffer_token_t* ring_buffer_consume(ring_buffer_t* rb, size_t* lost)
 	ring_buffer_node_t* token_node = rb->oldest_reserve;
 	rb->oldest_reserve = rb->oldest_reserve->chain_time.p_newer;
 
+	token_node->state = reading;
 	return &token_node->token;
 }
 
