@@ -1,8 +1,7 @@
 #include "RingBuffer.h"
 
-#define ALIGN_SIZE(size, align) (((uintptr_t)(size) + ((uintptr_t)(align) - 1)) & ~((uintptr_t)(align) - 1))
+#define ALIGN_SIZE(size, align)	(((uintptr_t)(size) + ((uintptr_t)(align) - 1)) & ~((uintptr_t)(align) - 1))
 #define ALIGN_PTR(ptr, align)	(void*)(ALIGN_SIZE(ptr, align))
-
 #define CONTAINER_FOR(ptr, TYPE, member)	((TYPE*)((uint8_t*)(ptr) - (size_t)&((TYPE*)0)->member))
 
 typedef enum ring_buffer_node_state
@@ -377,6 +376,7 @@ inline static int _ring_buffer_commit_for_consume_discard(ring_buffer_t* rb, rin
 		return 0;
 	}
 
+	/* if node is just older than oldest_reserve, then oldest_reserve should move back */
 	if (rb->oldest_reserve != NULL && rb->oldest_reserve->chain_time.p_older == node)
 	{
 		rb->oldeest_reserve = node;
